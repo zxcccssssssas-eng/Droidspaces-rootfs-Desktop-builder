@@ -10,8 +10,9 @@ ENABLE_nosnap="false"
 ENABLE_8gen2_wayland="false"
 ENABLE_systemd257="false"
 DISPLAY_BACKEND_INPUT="X11"
+EMBED_ANLAND_KDE_PACKAGES="true"
 # 解析输入参数 (-i 指定 Dockerfile，-v 指定版本号)
-while getopts "i:v:K:L:B:P:a:b:c:d:e:f:g:h:j:n:S:t:u:A:" opt; do
+while getopts "i:v:K:L:B:P:a:b:c:d:e:f:g:h:j:n:S:t:u:A:I:" opt; do
   case $opt in
     i) DOCKERFILE="$OPTARG" ;; # -i 参数赋值给 DOCKERFILE 变量
     v) VERSION="$OPTARG" ;;    # -v 参数赋值给 VERSION 变量
@@ -33,7 +34,8 @@ while getopts "i:v:K:L:B:P:a:b:c:d:e:f:g:h:j:n:S:t:u:A:" opt; do
     t) ENABLE_8gen2_wayland="$OPTARG" ;; # 修复骁龙8 Gen 2 Wayland 花屏
     u) USERNAME="$OPTARG" ;; # 自定义用户名
     A) LEGACY_ANLAND_INPUT="$OPTARG" ;; # 兼容旧参数
-    *) echo "用法: $0 -i <template.Dockerfile> -K <none|KDE|'KDE mobile'> [-B <x11|anland-wayland>]" ; exit 1 ;;
+    I) EMBED_ANLAND_KDE_PACKAGES="$OPTARG" ;; # 是否把 patched KWin/Xwayland 打进 RootFS
+    *) echo "用法: $0 -i <template.Dockerfile> -K <none|KDE|'KDE mobile'> [-B <x11|anland-wayland>] [-I true|false]" ; exit 1 ;;
   esac
 done
 
@@ -59,6 +61,7 @@ if ! DISPLAY_BACKEND="$(display_backend_normalize "$DISPLAY_BACKEND_INPUT")"; th
   exit 1
 fi
 case "$DESKTOP_AUTOSTART" in true|false) ;; *) echo "错误：-L 只支持 true 或 false。" >&2; exit 1 ;; esac
+case "$EMBED_ANLAND_KDE_PACKAGES" in true|false) ;; *) echo "错误：-I 只支持 true 或 false。" >&2; exit 1 ;; esac
 
 if [[ "$DESKTOP" == kde-mobile ]]; then
   DISPLAY_BACKEND="anland-wayland"
@@ -67,7 +70,7 @@ if [[ "$DISPLAY_BACKEND" == anland-wayland ]]; then
   PulseAudio="none"
 fi
 INSTALL_ANLAND_KDE_PACKAGES="false"
-if [[ "$DISPLAY_BACKEND" == anland-wayland ]] && desktop_uses_anland_kde_packages "$DESKTOP"; then
+if [[ "$DISPLAY_BACKEND" == anland-wayland ]] && desktop_uses_anland_kde_packages "$DESKTOP" && [[ "$EMBED_ANLAND_KDE_PACKAGES" == true ]]; then
   INSTALL_ANLAND_KDE_PACKAGES="true"
 fi
 
@@ -125,6 +128,7 @@ echo " 修复骁龙8 Gen 2 Wayland 花屏：$ENABLE_8gen2_wayland"
 echo " 桌面：$DESKTOP"
 echo " 显示后端：$DISPLAY_BACKEND"
 echo " 桌面自启动：$DESKTOP_AUTOSTART"
+echo " 打进 RootFS 的 Anland KDE 包：$INSTALL_ANLAND_KDE_PACKAGES"
 echo "========================================================="
 
 if [ "$INSTALL_ANLAND_KDE_PACKAGES" = "true" ]; then

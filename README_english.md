@@ -84,7 +84,8 @@ The main GitHub Actions inputs are:
 | Development tools integration (`enable_kfgj`) | `true`, `false` | `false` | Installs development tools. |
 | Compression tools integration (`enable_zip`) | `true`, `false` | `true` | Installs common compression tools. |
 | Docker integration (`enable_docker`) | `true`, `false` | `false` | Installs Docker-related packages inside the RootFS. |
-| Wayland package repository (`wayland_package_repository`) | Public `owner/repository` | `Goldzxcbug/droidspaces-package` | Selects the source of the `anland-kde-packages` Release. RootFS forks are never compared with the official package repository. |
+| Wayland package repository (`wayland_package_repository`) | Public `owner/repository` | `Goldzxcbug/droidspaces-package` | Selects the source of the `anland-kde-packages` Release. Set this repository to consume packages published by the independent package workflow. |
+| Embed patched KWin into RootFS (`embed_anland_kde_packages`) | `true`, `false` | `true` | Applies only with `anland-wayland`. When disabled, RootFS keeps distro KDE and patched KWin/Xwayland come from the independent package workflow or `install-anland-kde.sh`. |
 
 Desktop mode details:
 
@@ -114,15 +115,23 @@ This option targets old Android kernels and is experimental. It adds substantial
 
 ## Build with GitHub Actions
 
+RootFS and patched KWin/KDE Debian (plus RPM/Arch) packages are two independent workflows. Neither triggers the other.
+
+| Workflow | Artifacts | Purpose |
+| --- | --- | --- |
+| `编译并发布 Droidspaces RootFS` / `Build and Release Droidspaces RootFS` | `.tar.xz` RootFS | Assembles the distribution root filesystem only. Wayland builds embed already published patched packages by default. |
+| `构建并发布 Anland KDE Wayland 软件包` / `Build and Release Anland KDE Wayland packages` | `anland-kde-packages` Release archives, plus independent `.deb`/`.rpm`/`.pkg.tar.*` artifacts | Builds KWin/Xwayland only. Debian 13 and Ubuntu 26.04 produce independent deb packages. |
+
 1. Fork this repository to your own GitHub account.
 2. Open the `Actions` page in your fork.
-3. Select the Chinese workflow `编译并发布 Droidspaces RootFS` or the English workflow `Build and Release Droidspaces RootFS`.
-4. Click `Run workflow`.
-5. Choose the distribution, desktop profile, display backend, username, and feature toggles.
-6. For Wayland/Anland builds, choose `display_backend=anland-wayland`; it is supported on Debian 13, Ubuntu 26, Fedora 43/44, and Arch.
-7. The default source is `Goldzxcbug/droidspaces-package`. To use your package fork, set `wayland_package_repository` to its public `owner/repository`; RootFS does not compare which repository is newer.
-8. To rebuild patched KWin/Xwayland packages, first run `Build Anland KDE Wayland package families` from the selected package repository's Actions page.
-9. Wait for the RootFS workflow, then open its `Releases` page and download the generated `.tar.xz`.
+3. For RootFS only, select the Chinese workflow `编译并发布 Droidspaces RootFS` or the English workflow `Build and Release Droidspaces RootFS`.
+4. For independent KWin/KDE packages only, select `Build and Release Anland KDE Wayland packages` (or the Chinese equivalent) with `Debian13`, `ubuntu2604`, or `all`.
+5. Click `Run workflow`.
+6. In the RootFS workflow, choose the distribution, desktop profile, display backend, username, and feature toggles.
+7. For Wayland/Anland builds, choose `display_backend=anland-wayland`; it is supported on Debian 13, Ubuntu 26, Fedora 43/44, and Arch.
+8. RootFS reads `Goldzxcbug/droidspaces-package` by default. After this repository has published packages, set `wayland_package_repository` to this repository's `owner/repository`.
+9. To keep RootFS and packages fully separate, set `embed_anland_kde_packages=false`, then run `scripts/install-anland-kde.sh` inside the container or install the independent debs with `apt`.
+10. Wait for the matching Actions run. Download RootFS `.tar.xz` files from `Releases`, and independent packages from the `anland-kde-packages` Release or the `anland-kde-native-*` artifacts.
 
 The Release usually contains:
 
@@ -326,6 +335,20 @@ After a successful build, the output file will look similar to:
 Ubuntu-26-kde-Wayland-Droidspaces-rootfs-aarch64-local.tar.xz
 ```
 
+Build independent KWin/KDE packages without a RootFS (ARM64 Docker or `linux/arm64` emulation required):
+
+```bash
+chmod +x build_kde_packages.sh
+./build_kde_packages.sh -t Debian13
+./build_kde_packages.sh -t ubuntu2604
+```
+
+Debian/Ubuntu writes both the installer `.tar.gz` and independent `.deb` files under `kde-packages/`. After importing a RootFS that did not embed patched packages:
+
+```bash
+sudo apt-get install -y --allow-downgrades ./kde-packages/packages/debian13/*.deb
+```
+
 ## Install Hardware Firmware
 
 Debian 13 and Ubuntu 24/25/26 RootFS images include `/usr/local/bin/download-firmware` for installing and decompressing hardware firmware. Dependencies, repeat-run behavior, and processing details are in the [scripts directory guide](scripts/README_english.md#firmware-tool).
@@ -349,6 +372,7 @@ sudo download-firmware
 ├── Ubuntu-26.Dockerfile
 ├── build_rootfs-native.sh
 ├── build_rootfs-qemu-aarch64.sh
+├── build_kde_packages.sh
 ├── scripts/
 │   ├── README.md
 │   ├── README_english.md
@@ -359,7 +383,10 @@ sudo download-firmware
 │   │   ├── kde.sh
 │   │   └── kde-mobile.sh
 │   ├── lib/
-│   │   └── desktop-config.sh
+│   │   ├── desktop-config.sh
+│   │   ├── kde-package-config.sh
+│   │   ├── build-anland-kde-in-container.sh
+│   │   └── pack-anland-kde-archive.sh
 │   ├── start/
 │   │   └── desktop-session.service
 │   ├── bashrc.sh
@@ -375,10 +402,13 @@ sudo download-firmware
 └── .github/workflows/
     ├── build-rootfs-core.yml
     ├── build-rootfs-releases-en.yml
-    └── build-rootfs-releases.yml
+    ├── build-rootfs-releases.yml
+    ├── build-kde-wayland-core.yml
+    ├── build-kde-wayland.yml
+    └── build-kde-wayland-en.yml
 ```
 
-The KDE Wayland package workflow and fixed rolling Release now live in [`droidspaces-package`](https://github.com/Goldzxcbug/droidspaces-package). RootFS always reads `anland-kde-packages` from the selected package repository; it does not switch sources merely because the RootFS repository is a fork, and it does not compare build times. To maintain custom packages, fork the package repository, run its workflow to publish a complete Release with the same tag, and set the RootFS `wayland_package_repository` input to that public fork's `owner/repository`.
+KDE Wayland packages can be built in this repository with the independent package workflow, or still consumed from the fixed rolling Release `anland-kde-packages` in [`droidspaces-package`](https://github.com/Goldzxcbug/droidspaces-package). The RootFS workflow never starts the package workflow. The default package source remains the official package repository; to use packages built here, set `wayland_package_repository` to this repository's `owner/repository`. When `embed_anland_kde_packages` is disabled, RootFS does not include patched KWin; install the independent debs or run `install-anland-kde.sh` after import.
 
 ## Known Limitations
 

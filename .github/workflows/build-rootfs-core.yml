@@ -66,6 +66,10 @@ on:
         required: false
         type: string
         default: Goldzxcbug/droidspaces-package
+      embed_anland_kde_packages:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   # --------------------------------------------------------
@@ -98,6 +102,7 @@ jobs:
           PULSEAUDIO_INPUT: ${{ inputs.PulseAudio }}
           UI_LANGUAGE: ${{ inputs.ui_language }}
           WAYLAND_PACKAGE_REPOSITORY: ${{ inputs.wayland_package_repository }}
+          EMBED_ANLAND_KDE_PACKAGES: ${{ inputs.embed_anland_kde_packages }}
         run: |
           set -euo pipefail
           source scripts/lib/desktop-config.sh
@@ -200,6 +205,8 @@ jobs:
           message "显示后端：$DISPLAY_BACKEND" "Display backend: $DISPLAY_BACKEND"
           message "Wayland 软件包仓库：$WAYLAND_PACKAGE_REPOSITORY" \
             "Wayland package repository: $WAYLAND_PACKAGE_REPOSITORY"
+          message "将 patched KWin/Xwayland 打进 RootFS：$EMBED_ANLAND_KDE_PACKAGES" \
+            "Embed patched KWin/Xwayland into RootFS: $EMBED_ANLAND_KDE_PACKAGES"
           message "最终 PulseAudio 设置：$PULSE_AUDIO" \
             "Final PulseAudio value: $PULSE_AUDIO"
 
@@ -262,6 +269,7 @@ jobs:
             -n "${{ inputs.nosnap }}" \
             -S "${{ inputs.enable_systemd257 }}" \
             -t "${{ inputs.enable_8gen2_wayland }}" \
+            -I "${{ inputs.embed_anland_kde_packages }}" \
             -u "$CUSTOM_USERNAME"
 
       - name: ${{ inputs.ui_language == 'zh' && '上传构建产物' || 'Upload build artifacts' }}
@@ -309,6 +317,7 @@ jobs:
           DESKTOP_AUTOSTART: ${{ inputs.desktop_autostart }}
           DISPLAY_BACKEND: ${{ needs.setup.outputs.display_backend }}
           WAYLAND_PACKAGE_REPOSITORY: ${{ inputs.wayland_package_repository }}
+          EMBED_ANLAND_KDE_PACKAGES: ${{ inputs.embed_anland_kde_packages }}
           PULSE_AUDIO: ${{ needs.setup.outputs.pulseaudio_effective }}
           ENABLE_NOSNAP: ${{ inputs.nosnap }}
           ENABLE_SYSTEMD257: ${{ inputs.enable_systemd257 }}
@@ -337,6 +346,7 @@ jobs:
           - **桌面开机自启动**：$DESKTOP_AUTOSTART
           - **显示后端**：$DISPLAY_BACKEND
           - Wayland 软件包仓库：$WAYLAND_PACKAGE_REPOSITORY
+          - 将 patched KWin/Xwayland 打进 RootFS：$EMBED_ANLAND_KDE_PACKAGES
           - PulseAudio 音频转发：$PULSE_AUDIO
           - Anland 音频说明：Wayland 模式使用 Anland 应用内置音频，无需 PulseAudio
           - 移除 Ubuntu Snap：$ENABLE_NOSNAP
@@ -365,6 +375,7 @@ jobs:
           - **Desktop auto-start**: $DESKTOP_AUTOSTART
           - **Display backend**: $DISPLAY_BACKEND
           - Wayland package repository: $WAYLAND_PACKAGE_REPOSITORY
+          - Embed patched KWin/Xwayland into RootFS: $EMBED_ANLAND_KDE_PACKAGES
           - PulseAudio Audio Forwarding: $PULSE_AUDIO
           - Anland audio note: Wayland mode uses the built-in Anland app audio, so PulseAudio is not needed
           - nosnap: $ENABLE_NOSNAP

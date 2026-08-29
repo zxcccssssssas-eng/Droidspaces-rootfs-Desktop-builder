@@ -115,10 +115,15 @@ on:
         type: boolean
         default: false
       wayland_package_repository:
-        description: Wayland 软件包仓库（公开的 owner/repository）
+        description: Wayland 软件包仓库（公开的 owner/repository）；可填本仓库以使用独立软件包工作流的产物
         required: true
         type: string
         default: Goldzxcbug/droidspaces-package
+      embed_anland_kde_packages:
+        description: 将 patched KWin/Xwayland 打进 RootFS；关闭后 RootFS 与独立软件包完全分离
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -148,3 +153,4 @@ jobs:
       enable_zip: ${{ inputs.enable_zip }}
       enable_docker: ${{ inputs.enable_docker }}
       wayland_package_repository: ${{ inputs.wayland_package_repository }}
+      embed_anland_kde_packages: ${{ inputs.embed_anland_kde_packages }}

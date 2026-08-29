@@ -115,10 +115,15 @@ on:
         type: boolean
         default: false
       wayland_package_repository:
-        description: Wayland package repository (public owner/repository)
+        description: Wayland package repository (public owner/repository); set this repository to consume packages from the independent package workflow
         required: true
         type: string
         default: Goldzxcbug/droidspaces-package
+      embed_anland_kde_packages:
+        description: Embed patched KWin/Xwayland into RootFS; disable to keep RootFS and packages fully separate
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -148,3 +153,4 @@ jobs:
       enable_zip: ${{ inputs.enable_zip }}
       enable_docker: ${{ inputs.enable_docker }}
       wayland_package_repository: ${{ inputs.wayland_package_repository }}
+      embed_anland_kde_packages: ${{ inputs.embed_anland_kde_packages }}
