@@ -13,6 +13,7 @@ This directory contains installers used while building the RootFS, maintenance t
 | `start-desktop-session.sh` | Linux container | Starts the selected session from `/etc/droidspaces-desktop.conf`. |
 | `install-mesa.sh` | ARM64 Linux container | Installs the latest Android-container Mesa build and MediaCodec VA-API driver, then locks Mesa packages. |
 | `install-anland-kde.sh` | ARM64 Linux container | Installs Anland patched KWin/Xwayland Release packages and locks them. |
+| `lib/kde-package-config.sh`, `lib/build-anland-kde-in-container.sh`, `lib/pack-anland-kde-archive.sh` | Package build environment | Builds patched KWin/Xwayland packages independently of RootFS (deb/rpm/pkg). |
 | `install-usb-manager.sh` | Linux container | Installs Droidspaces USB Manager, distribution dependencies, launchers, and user permissions. |
 | `systemd257.sh` | RootFS build environment | Installs a complete package-manager-owned systemd 257 family when required by an old Android kernel. |
 | `download-firmware` | Debian/Ubuntu container | Installs `linux-firmware` and decompresses its `.zst` firmware. |
@@ -83,6 +84,16 @@ sudo ANLAND_KDE_RELEASE_REPOSITORY=owner/repository \
 
 The Anland host module, app, SELinux policy, bind mount, and Droidspaces permissions must still be configured as described in the [project Wayland and Anland setup](../README_english.md#wayland-and-anland-setup).
 
+## Independent KWin/KDE package builds
+
+The RootFS workflow does not compile KWin. To produce independent Debian/Ubuntu `.deb` files (and Fedora RPMs or Arch packages), run `build_kde_packages.sh` from the repository root, or the GitHub Actions workflow `Build and Release Anland KDE Wayland packages`. That path only clones Anland producer scripts and packages them in the matching distro container; it never writes a RootFS.
+
+```bash
+./build_kde_packages.sh -t Debian13
+```
+
+Outputs include the installer `.tar.gz` plus native packages under `kde-packages/packages/<target>/` for `apt install`, `dnf install`, or `pacman -U`. GitHub Actions also uploads those native files as `anland-kde-native-*` artifacts.
+
 ## USB Manager Installer
 
 `install-usb-manager.sh` supports Debian/Ubuntu, Fedora, and Arch. It installs PyQt5, ADB, udev, NTFS, exFAT, and other matching dependencies, followed by the `usb-manager`, `usb-passthrough`, and `usb-storage-passthrough` commands.
@@ -130,6 +141,10 @@ After changing a shell script, run at least a syntax check. Use ShellCheck when 
 bash -n scripts/install-mesa.sh
 bash -n scripts/install-anland-kde.sh
 bash -n scripts/install-usb-manager.sh
+bash -n scripts/lib/kde-package-config.sh
+bash -n scripts/lib/pack-anland-kde-archive.sh
+bash -n build_kde_packages.sh
+bash scripts/lib/kde-package-config.sh
 shellcheck scripts/install-mesa.sh
 ```
 

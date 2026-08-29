@@ -1,0 +1,48 @@
+name: Build and Release Anland KDE Wayland packages
+run-name: Anland KDE packages ${{ inputs.request_id || github.run_number }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_target:
+        description: Package target. all reuses the previous complete Release for failed platforms; a single target only replaces that archive. This workflow does not build RootFS.
+        required: true
+        type: choice
+        default: Debian13
+        options:
+          - all
+          - ubuntu2604
+          - Debian13
+          - Fedora43
+          - Fedora44
+          - Arch
+      anland_ref:
+        description: Anland branch, tag, or commit to build
+        required: true
+        type: string
+        default: main
+      anland_repo:
+        description: Anland repository URL
+        required: true
+        type: string
+        default: https://github.com/superturtlee/anland.git
+      request_id:
+        description: Optional caller request ID
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build packages
+    uses: ./.github/workflows/build-kde-wayland-core.yml
+    secrets: inherit
+    with:
+      ui_language: en
+      build_target: ${{ inputs.build_target }}
+      anland_ref: ${{ inputs.anland_ref }}
+      anland_repo: ${{ inputs.anland_repo }}
+      request_id: ${{ inputs.request_id }}

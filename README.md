@@ -85,7 +85,8 @@ GitHub Actions 的主要输入项如下：
 | 开发工具集成 (`enable_kfgj`) | `true`、`false` | `false` | 安装开发工具链。 |
 | 压缩工具集成 (`enable_zip`) | `true`、`false` | `true` | 安装常用压缩工具。 |
 | Docker 集成 (`enable_docker`) | `true`、`false` | `false` | 在 RootFS 内安装 Docker 相关包。 |
-| Wayland 软件包仓库 (`wayland_package_repository`) | 公开的 `owner/repository` | `Goldzxcbug/droidspaces-package` | 指定 `anland-kde-packages` Release 的来源；不会比较 RootFS Fork 与官方仓库的包时间。 |
+| Wayland 软件包仓库 (`wayland_package_repository`) | 公开的 `owner/repository` | `Goldzxcbug/droidspaces-package` | 指定 `anland-kde-packages` Release 的来源。可填本仓库，以使用本仓库独立软件包工作流发布的包。 |
+| 将 patched KWin 打进 RootFS (`embed_anland_kde_packages`) | `true`、`false` | `true` | 仅在 `anland-wayland` 时生效。关闭后 RootFS 只安装发行版自带的 KDE，patched KWin/Xwayland 由独立软件包工作流或 `install-anland-kde.sh` 提供。 |
 
 桌面模式说明：
 
@@ -115,15 +116,23 @@ GitHub Actions 的主要输入项如下：
 
 ## 使用 GitHub Actions 构建
 
+RootFS 与 patched KWin/KDE Debian（以及 RPM/Arch）软件包是两条独立工作流，互不触发。
+
+| 工作流 | 产物 | 说明 |
+| --- | --- | --- |
+| `编译并发布 Droidspaces RootFS` / `Build and Release Droidspaces RootFS` | `.tar.xz` RootFS | 只组装发行版根文件系统。Wayland 模式下默认把已发布的 patched 包打进镜像。 |
+| `构建并发布 Anland KDE Wayland 软件包` / `Build and Release Anland KDE Wayland packages` | `anland-kde-packages` Release 压缩包，以及独立的 `.deb`/`.rpm`/`.pkg.tar.*` 工件 | 只构建 KWin/Xwayland，不生成 RootFS。Debian 13 与 Ubuntu 26.04 产出独立 deb 包。 |
+
 1. Fork 本仓库到自己的 GitHub 账号。
 2. 打开 Fork 后仓库的 `Actions` 页面。
-3. 选择中文工作流 `编译并发布 Droidspaces RootFS`，或英文工作流 `Build and Release Droidspaces RootFS`。
-4. 点击 `Run workflow`。
-5. 选择发行版、桌面 profile、显示后端、用户名和功能开关。
-6. 如果要使用 Wayland/Anland，选择 `display_backend=anland-wayland`；支持 Debian 13、Ubuntu 26、Fedora 43/44 和 Arch。
-7. 默认直接使用 `Goldzxcbug/droidspaces-package`。若要使用你 Fork 的包仓库，在 `wayland_package_repository` 填写公开的 `owner/repository`；RootFS 不会比较两个仓库谁更新。
-8. 如需重新构建 patched KWin/Xwayland 包，先在对应包仓库的 Actions 页面运行 `Build Anland KDE Wayland package families`。
-9. 等待 RootFS Actions 完成，然后打开 `Releases` 页面下载生成的 `.tar.xz`。
+3. 若只要 RootFS：选择中文工作流 `编译并发布 Droidspaces RootFS`，或英文工作流 `Build and Release Droidspaces RootFS`。
+4. 若只要独立 KWin/KDE 软件包：选择 `构建并发布 Anland KDE Wayland 软件包`（或英文同名工作流），目标可选 `Debian13`、`ubuntu2604` 或 `all`。
+5. 点击 `Run workflow`。
+6. RootFS 工作流中选择发行版、桌面 profile、显示后端、用户名和功能开关。
+7. 如果要使用 Wayland/Anland，选择 `display_backend=anland-wayland`；支持 Debian 13、Ubuntu 26、Fedora 43/44 和 Arch。
+8. 默认 RootFS 读取 `Goldzxcbug/droidspaces-package`。若已在本仓库跑过软件包工作流，把 `wayland_package_repository` 改成当前仓库的 `owner/repository`。
+9. 若希望 RootFS 与软件包完全分离，将 `embed_anland_kde_packages` 设为 `false`，导入容器后再运行 `scripts/install-anland-kde.sh`，或用 `apt install` 安装独立 deb。
+10. 等待对应 Actions 完成。RootFS 在 `Releases` 下载 `.tar.xz`；独立软件包在 `anland-kde-packages` Release 或 `anland-kde-native-*` 工件中。
 
 Release 通常包含：
 
@@ -327,6 +336,20 @@ chmod +x build_rootfs-qemu-aarch64.sh
 Ubuntu-26-kde-Wayland-Droidspaces-rootfs-aarch64-local.tar.xz
 ```
 
+只构建独立 KWin/KDE 软件包、不生成 RootFS 的示例（需要 ARM64 Docker 或 `linux/arm64` 模拟）：
+
+```bash
+chmod +x build_kde_packages.sh
+./build_kde_packages.sh -t Debian13
+./build_kde_packages.sh -t ubuntu2604
+```
+
+Debian/Ubuntu 会在 `kde-packages/` 下同时生成安装器用 `.tar.gz` 和独立的 `.deb` 文件。导入未打进 patched 包的 RootFS 后，可以用这些 deb 更新 KWin/Xwayland：
+
+```bash
+sudo apt-get install -y --allow-downgrades ./kde-packages/packages/debian13/*.deb
+```
+
 ## 安装硬件固件
 
 Debian 13 和 Ubuntu 24/25/26 RootFS 内置 `/usr/local/bin/download-firmware`，用于安装并解压硬件固件。依赖、重复运行行为和处理流程见 [scripts 目录说明](scripts/README.md#固件工具)。
@@ -350,6 +373,7 @@ sudo download-firmware
 ├── Ubuntu-26.Dockerfile
 ├── build_rootfs-native.sh
 ├── build_rootfs-qemu-aarch64.sh
+├── build_kde_packages.sh
 ├── scripts/
 │   ├── README.md
 │   ├── README_english.md
@@ -360,7 +384,10 @@ sudo download-firmware
 │   │   ├── kde.sh
 │   │   └── kde-mobile.sh
 │   ├── lib/
-│   │   └── desktop-config.sh
+│   │   ├── desktop-config.sh
+│   │   ├── kde-package-config.sh
+│   │   ├── build-anland-kde-in-container.sh
+│   │   └── pack-anland-kde-archive.sh
 │   ├── start/
 │   │   └── desktop-session.service
 │   ├── bashrc.sh
@@ -376,10 +403,13 @@ sudo download-firmware
 └── .github/workflows/
     ├── build-rootfs-core.yml
     ├── build-rootfs-releases-en.yml
-    └── build-rootfs-releases.yml
+    ├── build-rootfs-releases.yml
+    ├── build-kde-wayland-core.yml
+    ├── build-kde-wayland.yml
+    └── build-kde-wayland-en.yml
 ```
 
-KDE Wayland 包的构建工作流和固定滚动 Release 已移到 [`droidspaces-package`](https://github.com/Goldzxcbug/droidspaces-package)。RootFS 默认只读取该仓库的 `anland-kde-packages`，不会因 RootFS 仓库被 Fork 而自动改用 Fork，也不会比较构建时间。需要自维护软件包时，应 Fork 包仓库、在其中运行工作流并生成完整的同名 Release，再把 RootFS 输入 `wayland_package_repository` 改为该公开 Fork 的 `owner/repository`。
+KDE Wayland 包可以在本仓库用独立工作流构建，也可以继续从 [`droidspaces-package`](https://github.com/Goldzxcbug/droidspaces-package) 读取固定滚动 Release `anland-kde-packages`。RootFS 工作流不会自动触发软件包工作流。默认仍读取官方包仓库；要使用本仓库自己构建的包，把 `wayland_package_repository` 设为当前仓库的 `owner/repository`。关闭 `embed_anland_kde_packages` 时，RootFS 不再内置 patched KWin，导入后可用独立 deb 或 `install-anland-kde.sh` 安装。
 
 ## 已知限制
 

@@ -1,0 +1,48 @@
+name: 构建并发布 Anland KDE Wayland 软件包
+run-name: Anland KDE 软件包 ${{ inputs.request_id || github.run_number }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_target:
+        description: 选择构建目标；all 中失败的平台沿用上一份完整 Release，单个平台只替换选中的包。此工作流不构建 RootFS。
+        required: true
+        type: choice
+        default: Debian13
+        options:
+          - all
+          - ubuntu2604
+          - Debian13
+          - Fedora43
+          - Fedora44
+          - Arch
+      anland_ref:
+        description: 要构建的 Anland 分支、标签或提交
+        required: true
+        type: string
+        default: main
+      anland_repo:
+        description: Anland 仓库地址
+        required: true
+        type: string
+        default: https://github.com/superturtlee/anland.git
+      request_id:
+        description: 可选的调用方请求 ID
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 构建软件包
+    uses: ./.github/workflows/build-kde-wayland-core.yml
+    secrets: inherit
+    with:
+      ui_language: zh
+      build_target: ${{ inputs.build_target }}
+      anland_ref: ${{ inputs.anland_ref }}
+      anland_repo: ${{ inputs.anland_repo }}
+      request_id: ${{ inputs.request_id }}

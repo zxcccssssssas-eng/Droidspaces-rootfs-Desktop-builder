@@ -13,6 +13,7 @@
 | `start-desktop-session.sh` | Linux 容器 | 根据 `/etc/droidspaces-desktop.conf` 启动实际桌面会话。 |
 | `install-mesa.sh` | ARM64 Linux 容器 | 安装最新版 Android 容器专用 Mesa 和 MediaCodec VA-API 驱动，并锁定 Mesa 包。 |
 | `install-anland-kde.sh` | ARM64 Linux 容器 | 安装 Anland patched KWin/Xwayland Release 包，并锁定相关包。 |
+| `lib/kde-package-config.sh`、`lib/build-anland-kde-in-container.sh`、`lib/pack-anland-kde-archive.sh` | 软件包构建环境 | 独立于 RootFS 构建 patched KWin/Xwayland 包（deb/rpm/pkg）。 |
 | `install-usb-manager.sh` | Linux 容器 | 安装 Droidspaces USB Manager、发行版依赖、菜单入口和用户权限。 |
 | `systemd257.sh` | RootFS 构建环境 | 在需要时安装由包管理器管控的 systemd 257 完整包族，供旧 Android 内核使用。 |
 | `download-firmware` | Debian/Ubuntu 容器 | 安装并解压 `linux-firmware` 中的 `.zst` 固件。 |
@@ -83,6 +84,16 @@ sudo ANLAND_KDE_RELEASE_REPOSITORY=owner/repository \
 
 Anland 宿主模块、App、SELinux、绑定挂载和 Droidspaces 权限仍需按[项目主页的 Wayland 和 Anland 配置](../README.md#wayland-和-anland-配置)完成。
 
+## 独立 KWin/KDE 软件包构建
+
+RootFS 工作流不会编译 KWin。要得到独立的 Debian/Ubuntu `.deb`（以及 Fedora RPM、Arch 包），运行仓库根目录的 `build_kde_packages.sh`，或使用 GitHub Actions 工作流 `构建并发布 Anland KDE Wayland 软件包`。该流程只克隆 Anland 的 producer 脚本并在对应发行版容器中打包，不生成 RootFS。
+
+```bash
+./build_kde_packages.sh -t Debian13
+```
+
+产物包含安装器使用的 `.tar.gz`，以及 `kde-packages/packages/<target>/` 下可直接 `apt install` / `dnf install` / `pacman -U` 的独立软件包。GitHub Actions 还会把这些原生包作为 `anland-kde-native-*` 工件上传。
+
 ## USB Manager 安装器
 
 `install-usb-manager.sh` 支持 Debian/Ubuntu、Fedora 和 Arch，自动安装 PyQt5、ADB、udev、NTFS、exFAT 等依赖，并安装 `usb-manager`、`usb-passthrough` 和 `usb-storage-passthrough` 命令。
@@ -130,6 +141,10 @@ sudo download-firmware
 bash -n scripts/install-mesa.sh
 bash -n scripts/install-anland-kde.sh
 bash -n scripts/install-usb-manager.sh
+bash -n scripts/lib/kde-package-config.sh
+bash -n scripts/lib/pack-anland-kde-archive.sh
+bash -n build_kde_packages.sh
+bash scripts/lib/kde-package-config.sh
 shellcheck scripts/install-mesa.sh
 ```
 
